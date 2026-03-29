@@ -9,6 +9,11 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Explicit root route fallback
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ─── CONSTANTS ───
 const COLORS = [
   { id: 'verde_oscuro', name: 'Verde Oscuro', hex: '#2d6a4f' },
