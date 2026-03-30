@@ -298,9 +298,9 @@
 </div>
 
 <div id="actionBar">
-  <button class="btn btn-primary" id="btnDrawDeck" onclick="drawFromDeck()">ROBAR MAZO</button>
-  <button class="btn btn-accent" id="btnDrawDiscard" onclick="drawFromDiscard()">TOMAR DESCARTE</button>
-  <button class="btn btn-danger" id="btnDiscard" onclick="discardDrawn()" style="display:none">DESCARTAR</button>
+  <button class="btn btn-primary" id="btnDrawDeck" onclick="drawFromDeck()">ROBAR MAZO 🂠</button>
+  <button class="btn btn-accent" id="btnDrawDiscard" onclick="drawFromDiscard()">TOMAR DESCARTE 🂡</button>
+  <button class="btn btn-danger" id="btnDiscard" onclick="discardDrawn()" style="display:none">DESCARTAR CARTA ✕</button>
 </div>
 
 <button id="musicToggle" onclick="toggleMusic()">♪ ON</button>
@@ -602,9 +602,19 @@ function render() {
   if (dl) {
     const hl = isMyTurn && turnPhase === 'draw';
     if (hl) {
-      ctx.strokeStyle = '#fcbf49';
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
+      ctx.shadowColor = '#52b788';
+      ctx.shadowBlur = 8 + pulse * 8;
+      ctx.strokeStyle = '#52b788';
       ctx.lineWidth = 2;
       ctx.strokeRect(dl.x - 4, dl.y - 4, dl.w + 8, dl.h + 8);
+      ctx.shadowBlur = 0;
+      // Label
+      const lfs = Math.max(6, dl.w * 0.11);
+      ctx.font = `${lfs}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#52b788';
+      ctx.fillText('▼ TOCA', dl.x + dl.w / 2, dl.y + dl.h + lfs + 6);
     }
     drawDeck(dl.x, dl.y, dl.w, dl.h, gameState.deckCount);
   }
@@ -614,9 +624,19 @@ function render() {
   if (dsl) {
     const hl = isMyTurn && turnPhase === 'draw';
     if (hl && gameState.discardTop) {
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 400);
+      ctx.shadowColor = '#fcbf49';
+      ctx.shadowBlur = 8 + pulse * 8;
       ctx.strokeStyle = '#fcbf49';
       ctx.lineWidth = 2;
       ctx.strokeRect(dsl.x - 4, dsl.y - 4, dsl.w + 8, dsl.h + 8);
+      ctx.shadowBlur = 0;
+      // Label
+      const lfs = Math.max(6, dsl.w * 0.11);
+      ctx.font = `${lfs}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fcbf49';
+      ctx.fillText('▼ TOCA', dsl.x + dsl.w / 2, dsl.y + dsl.h + lfs + 6);
     }
     drawDiscardPile(dsl.x, dsl.y, dsl.w, dsl.h, gameState.discardTop);
   }
@@ -624,12 +644,32 @@ function render() {
   // Drawn card
   if (drawnCard && layout.drawnCard) {
     const dcl = layout.drawnCard;
+    
+    // Pulsing glow background
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+    ctx.shadowColor = '#fcbf49';
+    ctx.shadowBlur = 15 + pulse * 10;
+    ctx.fillStyle = 'rgba(252,191,73,0.15)';
+    ctx.fillRect(dcl.x - 8, dcl.y - 8, dcl.w + 16, dcl.h + 16);
+    ctx.shadowBlur = 0;
+    
     drawPixelCard(dcl.x, dcl.y, dcl.w, dcl.h, drawnCard, true, true);
+    
     const fs = Math.max(7, dcl.w * 0.14);
     ctx.font = `${fs}px "Press Start 2P", monospace`;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fcbf49';
-    ctx.fillText('CARTA ROBADA', dcl.x + dcl.w / 2, dcl.y - 8);
+    ctx.fillText('CARTA ROBADA', dcl.x + dcl.w / 2, dcl.y - 12);
+    
+    // Instructions below drawn card
+    if (isMyTurn && turnPhase === 'place') {
+      const insFs = Math.max(6, dcl.w * 0.11);
+      ctx.font = `${insFs}px "Press Start 2P", monospace`;
+      ctx.fillStyle = '#52b788';
+      ctx.fillText('▲ TOCA UNA CARTA PARA CAMBIAR', dcl.x + dcl.w / 2, dcl.y + dcl.h + insFs + 6);
+      ctx.fillStyle = '#e63946';
+      ctx.fillText('O DESCARTA ABAJO ▼', dcl.x + dcl.w / 2, dcl.y + dcl.h + insFs * 2 + 12);
+    }
   }
 
   // Players' cards
@@ -982,7 +1022,7 @@ socket.on('gameState', (state) => {
   updateActionBar();
 
   if (isMyTurn && state.state === 'playing') {
-    showToast('¡Tu turno!');
+    showToast('¡Tu turno! Roba del MAZO o del DESCARTE', 3000);
   }
 });
 
@@ -998,7 +1038,9 @@ socket.on('cardDrawn', (data) => {
   updateActionBar();
 
   if (data.playerId !== myId) {
-    showToast(`${getPlayerName(data.playerId)} robó: ${data.card.value} ${data.card.colorName}`);
+    showToast(`${getPlayerName(data.playerId)} robó: ${data.card.value} ${data.card.colorName}`, 2500);
+  } else {
+    showToast(`Sacaste: ${data.card.value} ${data.card.colorName} — ¡Elige dónde colocarla!`, 3000);
   }
 });
 
@@ -1025,14 +1067,14 @@ socket.on('cardDiscarded', (data) => {
   drawnCard = null;
   if (data.playerId === myId) {
     turnPhase = 'mustFlip';
-    showToast('Voltea una carta boca abajo');
+    showToast('Descartaste — ahora voltea una carta boca abajo', 3000);
   }
   updateActionBar();
 });
 
 socket.on('mustFlipCard', () => {
   turnPhase = 'mustFlip';
-  showToast('Voltea una carta boca abajo');
+  showToast('Toca una carta boca abajo para voltearla', 3000);
   updateActionBar();
 });
 
@@ -1150,53 +1192,130 @@ function handleEliminationVisual(playerId, elimination) {
 }
 
 // ═══════════════════════════════════════════
-//  CHIPTUNE MUSIC - Web Audio API
+//  SOFT CHIPTUNE MUSIC - Web Audio API
 // ═══════════════════════════════════════════
 let audioCtx = null;
 let musicPlaying = false;
 let musicNodes = [];
 let musicInterval = null;
+let masterGain = null;
 
+// Longer, softer, more melodic composition (waltz-like lullaby feel)
 const MELODY = [
-  // Cute tender chiptune melody
-  { note: 'E4', dur: 0.25 }, { note: 'G4', dur: 0.25 },
-  { note: 'A4', dur: 0.5 },  { note: 'G4', dur: 0.25 },
-  { note: 'E4', dur: 0.25 }, { note: 'D4', dur: 0.5 },
-  { note: 'C4', dur: 0.25 }, { note: 'D4', dur: 0.25 },
-  { note: 'E4', dur: 0.5 },  { note: 'G4', dur: 0.5 },
-  { note: 'A4', dur: 0.25 }, { note: 'B4', dur: 0.25 },
-  { note: 'A4', dur: 0.5 },  { note: 'G4', dur: 0.25 },
-  { note: 'E4', dur: 0.25 }, { note: 'D4', dur: 0.5 },
-  { note: 'E4', dur: 1.0 },
+  // Section A - Sweet opening theme
+  { note: 'E4', dur: 0.5 }, { note: 'F#4', dur: 0.25 }, { note: 'G4', dur: 0.25 },
+  { note: 'A4', dur: 0.75 }, { note: 'G4', dur: 0.25 },
+  { note: 'E4', dur: 0.5 }, { note: 'D4', dur: 0.5 },
+  { note: 'C4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
 
-  { note: 'C4', dur: 0.25 }, { note: 'D4', dur: 0.25 },
-  { note: 'E4', dur: 0.5 },  { note: 'C4', dur: 0.25 },
-  { note: 'D4', dur: 0.25 }, { note: 'E4', dur: 0.25 },
-  { note: 'G4', dur: 0.25 }, { note: 'A4', dur: 0.5 },
-  { note: 'G4', dur: 0.5 },  { note: 'E4', dur: 0.25 },
-  { note: 'D4', dur: 0.25 }, { note: 'C4', dur: 0.5 },
-  { note: 'D4', dur: 0.5 },  { note: 'E4', dur: 1.0 },
+  { note: 'D4', dur: 0.5 }, { note: 'E4', dur: 0.25 }, { note: 'F#4', dur: 0.25 },
+  { note: 'G4', dur: 0.75 }, { note: 'F#4', dur: 0.25 },
+  { note: 'E4', dur: 0.5 }, { note: 'D4', dur: 0.25 }, { note: 'C4', dur: 0.25 },
+  { note: 'D4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+
+  // Section A repeat with variation
+  { note: 'E4', dur: 0.5 }, { note: 'F#4', dur: 0.25 }, { note: 'G4', dur: 0.25 },
+  { note: 'A4', dur: 0.5 }, { note: 'B4', dur: 0.5 },
+  { note: 'C5', dur: 0.75 }, { note: 'B4', dur: 0.25 },
+  { note: 'A4', dur: 0.5 }, { note: 'G4', dur: 0.5 },
+
+  { note: 'F#4', dur: 0.25 }, { note: 'G4', dur: 0.25 }, { note: 'A4', dur: 0.5 },
+  { note: 'G4', dur: 0.5 }, { note: 'E4', dur: 0.5 },
+  { note: 'D4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+  { note: 'C4', dur: 1.0 },
+
+  // Section B - Gentle bridge
+  { note: 'A3', dur: 0.5 }, { note: 'C4', dur: 0.5 },
+  { note: 'E4', dur: 0.75 }, { note: 'D4', dur: 0.25 },
+  { note: 'C4', dur: 0.5 }, { note: 'E4', dur: 0.5 },
+  { note: 'D4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+
+  { note: 'B3', dur: 0.5 }, { note: 'D4', dur: 0.5 },
+  { note: 'F#4', dur: 0.75 }, { note: 'E4', dur: 0.25 },
+  { note: 'D4', dur: 0.5 }, { note: 'F#4', dur: 0.5 },
+  { note: 'E4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+
+  { note: 'C4', dur: 0.5 }, { note: 'E4', dur: 0.5 },
+  { note: 'G4', dur: 0.75 }, { note: 'F#4', dur: 0.25 },
+  { note: 'E4', dur: 0.5 }, { note: 'D4', dur: 0.5 },
+  { note: 'C4', dur: 0.5 }, { note: 'D4', dur: 0.5 },
+
+  { note: 'E4', dur: 1.5 }, { note: 'REST', dur: 0.5 },
+
+  // Section C - Dreamy high melody
+  { note: 'G4', dur: 0.75 }, { note: 'A4', dur: 0.25 },
+  { note: 'B4', dur: 0.5 }, { note: 'A4', dur: 0.5 },
+  { note: 'G4', dur: 0.75 }, { note: 'F#4', dur: 0.25 },
+  { note: 'E4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+
+  { note: 'F#4', dur: 0.75 }, { note: 'G4', dur: 0.25 },
+  { note: 'A4', dur: 0.5 }, { note: 'G4', dur: 0.5 },
+  { note: 'F#4', dur: 0.75 }, { note: 'E4', dur: 0.25 },
+  { note: 'D4', dur: 0.75 }, { note: 'REST', dur: 0.25 },
+
+  { note: 'E4', dur: 0.5 }, { note: 'G4', dur: 0.5 },
+  { note: 'A4', dur: 0.5 }, { note: 'B4', dur: 0.5 },
+  { note: 'C5', dur: 1.0 },
+  { note: 'B4', dur: 0.5 }, { note: 'A4', dur: 0.5 },
+
+  { note: 'G4', dur: 0.5 }, { note: 'E4', dur: 0.5 },
+  { note: 'D4', dur: 0.5 }, { note: 'C4', dur: 0.5 },
+  { note: 'D4', dur: 0.75 }, { note: 'E4', dur: 0.25 },
+  { note: 'C4', dur: 1.5 }, { note: 'REST', dur: 0.5 },
 ];
 
-const BASS = [
-  { note: 'C3', dur: 1.0 }, { note: 'G2', dur: 1.0 },
-  { note: 'A2', dur: 1.0 }, { note: 'E2', dur: 1.0 },
-  { note: 'F2', dur: 1.0 }, { note: 'C3', dur: 1.0 },
-  { note: 'G2', dur: 1.0 }, { note: 'C3', dur: 1.0 },
+// Gentle arpeggio accompaniment
+const ARPEGGIO = [
+  // Am
+  { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'E3', dur: 0.5 }, { note: 'C3', dur: 0.5 },
+  // F
+  { note: 'F2', dur: 0.5 }, { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'A2', dur: 0.5 },
+  // C
+  { note: 'C2', dur: 0.5 }, { note: 'E2', dur: 0.5 }, { note: 'G2', dur: 0.5 }, { note: 'E2', dur: 0.5 },
+  // G
+  { note: 'G2', dur: 0.5 }, { note: 'B2', dur: 0.5 }, { note: 'D3', dur: 0.5 }, { note: 'B2', dur: 0.5 },
+  // Am
+  { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'E3', dur: 0.5 }, { note: 'C3', dur: 0.5 },
+  // Em
+  { note: 'E2', dur: 0.5 }, { note: 'G2', dur: 0.5 }, { note: 'B2', dur: 0.5 }, { note: 'G2', dur: 0.5 },
+  // F
+  { note: 'F2', dur: 0.5 }, { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'A2', dur: 0.5 },
+  // G
+  { note: 'G2', dur: 0.5 }, { note: 'B2', dur: 0.5 }, { note: 'D3', dur: 0.5 }, { note: 'B2', dur: 0.5 },
+  // C
+  { note: 'C2', dur: 0.5 }, { note: 'E2', dur: 0.5 }, { note: 'G2', dur: 0.5 }, { note: 'E2', dur: 0.5 },
+  // Am
+  { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'E3', dur: 0.5 }, { note: 'C3', dur: 0.5 },
+  // D
+  { note: 'D2', dur: 0.5 }, { note: 'F#2', dur: 0.5 }, { note: 'A2', dur: 0.5 }, { note: 'F#2', dur: 0.5 },
+  // G
+  { note: 'G2', dur: 0.5 }, { note: 'B2', dur: 0.5 }, { note: 'D3', dur: 0.5 }, { note: 'B2', dur: 0.5 },
+  // C
+  { note: 'C2', dur: 0.5 }, { note: 'E2', dur: 0.5 }, { note: 'G2', dur: 0.5 }, { note: 'E2', dur: 0.5 },
+  // F
+  { note: 'F2', dur: 0.5 }, { note: 'A2', dur: 0.5 }, { note: 'C3', dur: 0.5 }, { note: 'A2', dur: 0.5 },
+  // G
+  { note: 'G2', dur: 0.5 }, { note: 'B2', dur: 0.5 }, { note: 'D3', dur: 0.5 }, { note: 'B2', dur: 0.5 },
+  // C (resolve)
+  { note: 'C2', dur: 0.5 }, { note: 'E2', dur: 0.5 }, { note: 'G2', dur: 0.5 }, { note: 'E2', dur: 0.5 },
 ];
 
 const NOTE_FREQ = {
-  'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47,
-  'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
-  'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
-  'C5': 523.25,
+  'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47,
+  'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+  'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+  'C5': 523.25, 'D5': 587.33,
 };
 
 function startMusic() {
   if (musicPlaying) return;
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    masterGain.connect(audioCtx.destination);
     musicPlaying = true;
+    document.getElementById('musicToggle').textContent = '♪ ON';
     playMelodyLoop();
   } catch (e) { console.log('Audio not available'); }
 }
@@ -1204,49 +1323,59 @@ function startMusic() {
 function playMelodyLoop() {
   if (!audioCtx || !musicPlaying) return;
 
-  const tempo = 140; // BPM
+  const tempo = 90; // Slower, gentler tempo
   const beatDur = 60 / tempo;
   let time = audioCtx.currentTime + 0.1;
 
-  // Melody
+  // Melody - soft sine wave
   for (const n of MELODY) {
-    playNote(NOTE_FREQ[n.note], time, n.dur * beatDur, 'square', 0.08);
+    if (n.note !== 'REST') {
+      playNote(NOTE_FREQ[n.note], time, n.dur * beatDur * 0.9, 'sine', 0.12);
+      // Add subtle harmony (fifth above, very quiet)
+      if (Math.random() > 0.6) {
+        playNote(NOTE_FREQ[n.note] * 1.5, time, n.dur * beatDur * 0.5, 'sine', 0.03);
+      }
+    }
     time += n.dur * beatDur;
   }
 
-  // Bass
-  let bassTime = audioCtx.currentTime + 0.1;
+  // Arpeggio accompaniment - triangle wave, very soft
+  let arpTime = audioCtx.currentTime + 0.1;
   const totalMelodyTime = MELODY.reduce((s, n) => s + n.dur * beatDur, 0);
-  const bassLoopDur = BASS.reduce((s, n) => s + n.dur * beatDur, 0);
-  const bassRepeats = Math.ceil(totalMelodyTime / bassLoopDur);
+  const arpLoopDur = ARPEGGIO.reduce((s, n) => s + n.dur * beatDur, 0);
+  const arpRepeats = Math.ceil(totalMelodyTime / arpLoopDur);
 
-  for (let rep = 0; rep < bassRepeats; rep++) {
-    for (const n of BASS) {
-      if (bassTime < audioCtx.currentTime + totalMelodyTime + 0.1) {
-        playNote(NOTE_FREQ[n.note], bassTime, n.dur * beatDur * 0.8, 'triangle', 0.06);
+  for (let rep = 0; rep < arpRepeats; rep++) {
+    for (const n of ARPEGGIO) {
+      if (arpTime < audioCtx.currentTime + totalMelodyTime + 0.1) {
+        playNote(NOTE_FREQ[n.note], arpTime, n.dur * beatDur * 0.7, 'triangle', 0.04);
       }
-      bassTime += n.dur * beatDur;
+      arpTime += n.dur * beatDur;
     }
   }
 
   // Schedule next loop
   const loopDuration = totalMelodyTime * 1000;
-  musicInterval = setTimeout(playMelodyLoop, loopDuration - 100);
+  musicInterval = setTimeout(playMelodyLoop, loopDuration - 200);
 }
 
 function playNote(freq, startTime, duration, waveform, volume) {
-  if (!audioCtx || !musicPlaying) return;
+  if (!audioCtx || !musicPlaying || !masterGain) return;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = waveform;
   osc.frequency.setValueAtTime(freq, startTime);
-  gain.gain.setValueAtTime(volume, startTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  
+  // Soft attack and release envelope
+  gain.gain.setValueAtTime(0.001, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + 0.05); // soft attack
+  gain.gain.setValueAtTime(volume, startTime + duration * 0.6);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration); // soft release
+  
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(masterGain);
   osc.start(startTime);
   osc.stop(startTime + duration + 0.05);
-  musicNodes.push(osc);
 }
 
 function toggleMusic() {
@@ -1256,6 +1385,7 @@ function toggleMusic() {
     clearTimeout(musicInterval);
     if (audioCtx) audioCtx.close();
     audioCtx = null;
+    masterGain = null;
     btn.textContent = '♪ OFF';
   } else {
     startMusic();
